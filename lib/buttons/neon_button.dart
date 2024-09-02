@@ -15,6 +15,7 @@ class NeonButton extends StatefulWidget {
   final double? borderRadius;
   final bool showGlow;
   final double blurAmount;
+  final VoidCallback? onTap;
 
   const NeonButton({
     super.key,
@@ -28,6 +29,7 @@ class NeonButton extends StatefulWidget {
     this.borderRadius,
     this.showGlow = false,
     this.blurAmount = 15,
+    this.onTap,
   });
 
   @override
@@ -35,8 +37,9 @@ class NeonButton extends StatefulWidget {
 }
 
 class _NeonButtonState extends State<NeonButton> with SingleTickerProviderStateMixin {
-  late AnimationController controller;
+  late AnimationController _controller;
   late List<Color> _colors;
+  bool _isPressed = false;
 
   @override
   void initState() {
@@ -44,21 +47,21 @@ class _NeonButtonState extends State<NeonButton> with SingleTickerProviderStateM
 
     _colors = [...widget.colors, widget.colors.first];
 
-    controller = AnimationController(
+    _controller = AnimationController(
       duration: widget.cycle,
       vsync: this,
     )
       ..forward()
       ..addListener(() {
-        if (controller.isCompleted) {
-          controller.repeat();
+        if (_controller.isCompleted) {
+          _controller.repeat();
         }
       });
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -67,67 +70,83 @@ class _NeonButtonState extends State<NeonButton> with SingleTickerProviderStateM
     final aspectRatio = widget.height / widget.width;
 
     return AnimatedBuilder(
-      animation: controller,
+      animation: _controller,
       builder: (context, _) => Stack(
           alignment: Alignment.center,
           children: [
             if (widget.showGlow)
-              ClipRRect(
-                child: SizedBox(
-                  width: widget.width + widget.blurAmount * 3,
-                  height: widget.height + widget.blurAmount * 3,
-                  child: Center(
-                    child: Container(
-                      width: widget.width,
-                      height: widget.height,
-                      padding: EdgeInsets.all(widget.borderThickness),
-                      clipBehavior: Clip.none,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
-                        gradient: LinearGradient(
-                          tileMode: TileMode.repeated,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          transform: SlideGradient(
-                            controller.value,
-                            widget.height * aspectRatio,
+              AnimatedScale(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.fastEaseInToSlowEaseOut,
+                scale: _isPressed ? .8 : 1,
+                child: ClipRRect(
+                  child: SizedBox(
+                    width: widget.width + widget.blurAmount * 3,
+                    height: widget.height + widget.blurAmount * 3,
+                    child: Center(
+                      child: Container(
+                        width: widget.width,
+                        height: widget.height,
+                        padding: EdgeInsets.all(widget.borderThickness),
+                        clipBehavior: Clip.none,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
+                          gradient: LinearGradient(
+                            tileMode: TileMode.repeated,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            transform: SlideGradient(
+                              _controller.value,
+                              widget.height * aspectRatio,
+                            ),
+                            colors: _colors,
                           ),
-                          colors: _colors,
                         ),
-                      ),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: widget.blurAmount, sigmaY: widget.blurAmount),
-                        child: Container(),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: widget.blurAmount, sigmaY: widget.blurAmount),
+                          child: Container(),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            Container(
-              width: widget.width,
-              height: widget.height,
-              padding: EdgeInsets.all(widget.borderThickness),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
-                gradient: LinearGradient(
-                  tileMode: TileMode.repeated,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  transform: SlideGradient(
-                    controller.value,
-                    widget.height * aspectRatio,
+            GestureDetector(
+              onTapDown: (_) => setState(() => _isPressed = true),
+              onTapUp: (_) => setState(() => _isPressed = false),
+              onTapCancel: () => setState(() => _isPressed = false),
+              onTap: widget.onTap?.call,
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.fastEaseInToSlowEaseOut,
+                scale: _isPressed ? .95 : 1,
+                child: Container(
+                  width: widget.width,
+                  height: widget.height,
+                  padding: EdgeInsets.all(widget.borderThickness),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
+                    gradient: LinearGradient(
+                      tileMode: TileMode.repeated,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      transform: SlideGradient(
+                        _controller.value,
+                        widget.height * aspectRatio,
+                      ),
+                      colors: _colors,
+                    ),
                   ),
-                  colors: _colors,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: widget.backgroundColor,
+                      borderRadius: widget.borderRadius != null
+                          ? BorderRadius.circular(widget.borderRadius! - widget.borderThickness)
+                          : null,
+                    ),
+                    child: widget.child,
+                  ),
                 ),
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: widget.backgroundColor,
-                  borderRadius: widget.borderRadius != null
-                      ? BorderRadius.circular(widget.borderRadius! - widget.borderThickness)
-                      : null,
-                ),
-                child: widget.child,
               ),
             ),
           ],
